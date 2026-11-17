@@ -1,0 +1,123 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Comment {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  content   String
+  postId    String   @db.Uuid
+  authorId  String   @db.Uuid
+  createdAt DateTime @default(now())
+  User      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  Post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model Follow {
+  followerId                    String   @db.Uuid
+  followingId                   String   @db.Uuid
+  createdAt                     DateTime @default(now())
+  User_Follow_followerIdToUser  User     @relation("Follow_followerIdToUser", fields: [followerId], references: [id], onDelete: Cascade)
+  User_Follow_followingIdToUser User     @relation("Follow_followingIdToUser", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followingId])
+  @@index([followingId])
+}
+
+model Like {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  postId    String   @db.Uuid
+  userId    String   @db.Uuid
+  createdAt DateTime @default(now())
+  Post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  User      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+}
+
+model Notification {
+  id        String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  type      NotificationType
+  message   String
+  isRead    Boolean          @default(false)
+  userId    String           @db.Uuid
+  createdAt DateTime         @default(now())
+  User      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+}
+
+model Post {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  content   String
+  isHidden  Boolean   @default(false)
+  authorId  String    @db.Uuid
+  createdAt DateTime  @default(now())
+  Comment   Comment[]
+  Like      Like[]
+  User      User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  Report    Report[]
+
+  @@index([authorId, createdAt])
+}
+
+model Profile {
+  userId    String   @id
+  name      String?
+  bio       String?
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+}
+
+model Report {
+  id         String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reason     String
+  status     ReportStatus @default(PENDING)
+  postId     String       @db.Uuid
+  reporterId String       @db.Uuid
+  createdAt  DateTime     @default(now())
+  Post       Post         @relation(fields: [postId], references: [id], onDelete: Cascade)
+  User       User         @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id                              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  username                        String         @unique
+  email                           String         @unique
+  passwordHash                    String
+  role                            Role           @default(USER)
+  createdAt                       DateTime       @default(now())
+  Comment                         Comment[]
+  Follow_Follow_followerIdToUser  Follow[]       @relation("Follow_followerIdToUser")
+  Follow_Follow_followingIdToUser Follow[]       @relation("Follow_followingIdToUser")
+  Like                            Like[]
+  Notification                    Notification[]
+  Post                            Post[]
+  Report                          Report[]
+}
+
+enum NotificationType {
+  LIKE
+  COMMENT
+  FOLLOW
+  MENTION
+  SYSTEM
+}
+
+enum ReportStatus {
+  PENDING
+  RESOLVED
+  DISMISSED
+}
+
+enum Role {
+  USER
+  ADMIN
+}
