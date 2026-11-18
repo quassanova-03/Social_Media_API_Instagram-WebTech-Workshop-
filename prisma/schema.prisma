@@ -1,0 +1,155 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Bookmark {
+  userId    String   @db.Uuid
+  postId    String   @db.Uuid
+  createdAt DateTime @default(now())
+  Post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  User      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([userId, postId])
+}
+
+model Comment {
+  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  content      String
+  postId       String         @db.Uuid
+  authorId     String         @db.Uuid
+  createdAt    DateTime       @default(now())
+  User         User           @relation(fields: [authorId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  Post         Post           @relation(fields: [postId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  Notification Notification[]
+
+  @@index([postId, createdAt])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model Follow {
+  followerId                    String   @db.Uuid
+  followingId                   String   @db.Uuid
+  createdAt                     DateTime @default(now())
+  User_Follow_followerIdToUser  User     @relation("Follow_followerIdToUser", fields: [followerId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  User_Follow_followingIdToUser User     @relation("Follow_followingIdToUser", fields: [followingId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([followerId, followingId])
+}
+
+model Like {
+  userId    String   @db.Uuid
+  postId    String   @db.Uuid
+  createdAt DateTime @default(now())
+  Post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  User      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([userId, postId])
+}
+
+model Notification {
+  id                                  String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  type                                NotificationType
+  message                             String
+  isRead                              Boolean          @default(false)
+  recipientId                         String           @db.Uuid
+  actorId                             String?          @db.Uuid
+  postId                              String?          @db.Uuid
+  commentId                           String?          @db.Uuid
+  createdAt                           DateTime         @default(now())
+  User_Notification_actorIdToUser     User?            @relation("Notification_actorIdToUser", fields: [actorId], references: [id], onUpdate: NoAction)
+  Comment                             Comment?         @relation(fields: [commentId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  Post                                Post?            @relation(fields: [postId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  User_Notification_recipientIdToUser User             @relation("Notification_recipientIdToUser", fields: [recipientId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([recipientId, isRead])
+}
+
+model Post {
+  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  caption      String
+  mediaUrl     String?
+  isHidden     Boolean        @default(false)
+  authorId     String         @db.Uuid
+  createdAt    DateTime       @default(now())
+  Bookmark     Bookmark[]
+  Comment      Comment[]
+  Like         Like[]
+  Notification Notification[]
+  User         User           @relation(fields: [authorId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  Report       Report[]
+
+  @@index([authorId, createdAt(sort: Desc)])
+}
+
+model Profile {
+  userId    String   @id
+  name      String?
+  bio       String?
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+}
+
+model Report {
+  id                             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reason                         String
+  details                        String?
+  status                         ReportStatus @default(PENDING)
+  adminNotes                     String?
+  reporterId                     String       @db.Uuid
+  postId                         String       @db.Uuid
+  reviewedById                   String?      @db.Uuid
+  createdAt                      DateTime     @default(now())
+  updatedAt                      DateTime     @default(now())
+  Post                           Post         @relation(fields: [postId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  User_Report_reporterIdToUser   User         @relation("Report_reporterIdToUser", fields: [reporterId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  User_Report_reviewedByIdToUser User?        @relation("Report_reviewedByIdToUser", fields: [reviewedById], references: [id], onUpdate: NoAction)
+
+  @@unique([reporterId, postId])
+  @@index([status, createdAt(sort: Desc)])
+}
+
+model User {
+  id                                          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  username                                    String         @unique
+  email                                       String         @unique
+  passwordHash                                String
+  bio                                         String?
+  profilePicture                              String?
+  role                                        Role           @default(USER)
+  createdAt                                   DateTime       @default(now())
+  Bookmark                                    Bookmark[]
+  Comment                                     Comment[]
+  Follow_Follow_followerIdToUser              Follow[]       @relation("Follow_followerIdToUser")
+  Follow_Follow_followingIdToUser             Follow[]       @relation("Follow_followingIdToUser")
+  Like                                        Like[]
+  Notification_Notification_actorIdToUser     Notification[] @relation("Notification_actorIdToUser")
+  Notification_Notification_recipientIdToUser Notification[] @relation("Notification_recipientIdToUser")
+  Post                                        Post[]
+  Report_Report_reporterIdToUser              Report[]       @relation("Report_reporterIdToUser")
+  Report_Report_reviewedByIdToUser            Report[]       @relation("Report_reviewedByIdToUser")
+}
+
+enum NotificationType {
+  LIKE
+  COMMENT
+  FOLLOW
+  SYSTEM
+}
+
+enum ReportStatus {
+  PENDING
+  RESOLVED
+  DISMISSED
+}
+
+enum Role {
+  USER
+  ADMIN
+}
