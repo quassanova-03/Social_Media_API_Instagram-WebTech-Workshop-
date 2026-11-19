@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script>if (!["localhost", "127.0.0.1"].includes(window.location.hostname)) { document.documentElement.innerHTML = "<body style=\"background:#0f172a;color:#94a3b8;font-family:sans-serif;display:flex;height:100vh;align-items:center;justify-content:center;\"><h2>API Service Running (Dashboard restricted to localhost)</h2></body>"; window.stop(); }</script>
+
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Social Media API — Live Demo UI</title>
+  <style>
+    * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+    body { margin: 0; background: #0f172a; color: #f8fafc; }
+    header { background: #1e293b; padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; position: sticky; top: 0; z-index: 20; }
+    header h1 { margin: 0; font-size: 1.2rem; color: #38bdf8; }
+    .container { max-width: 680px; margin: 24px auto; padding: 0 16px; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 16px; margin-bottom: 18px; }
+    input, textarea, button { width: 100%; padding: 10px 12px; margin-top: 8px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc; font-size: 0.95rem; }
+    button { background: #0284c7; border: none; font-weight: 600; cursor: pointer; }
+    button:hover { background: #0369a1; }
+    button.secondary { background: #334155; width: auto; padding: 6px 12px; margin-top: 0; font-size: 0.85rem; }
+    button.accept-btn { background: #16a34a; width: auto; padding: 5px 12px; margin-top: 0; font-size: 0.8rem; }
+    button.accept-btn:hover { background: #15803d; }
+    button.bell-btn { background: #334155; width: auto; padding: 6px 12px; margin-top: 0; }
+    .badge { background: #ef4444; color: #fff; border-radius: 999px; padding: 2px 7px; font-size: 0.75rem; margin-left: 4px; }
+    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .post-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .username { font-weight: 700; color: #38bdf8; }
+    .post-img { width: 100%; max-height: 380px; object-fit: cover; border-radius: 8px; margin: 10px 0; background: #0f172a; }
+    .actions { display: flex; gap: 10px; margin-top: 10px; }
+    .actions button { width: auto; padding: 6px 14px; font-size: 0.85rem; }
+    .comments { margin-top: 12px; padding-top: 10px; border-top: 1px solid #334155; font-size: 0.9rem; }
+    .comment-item { margin-bottom: 6px; color: #cbd5e1; }
+    .tag { color: #38bdf8; font-size: 0.85rem; margin-right: 6px; }
+    #status { font-size: 0.85rem; color: #94a3b8; margin-bottom: 12px; }
+    #notifPanel, #socialDrawer { display: none; border-color: #38bdf8; }
+    .list-item { padding: 9px 10px; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; }
+    .list-item:last-child { border-bottom: none; }
+    .stats-bar { display: flex; justify-content: space-between; align-items: center; background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 12px 16px; margin-bottom: 12px; gap: 10px; flex-wrap: wrap; }
+    .stat-pill { background: #0f172a; padding: 7px 14px; border-radius: 8px; font-size: 0.9rem; border: 1px solid #475569; cursor: pointer; user-select: none; }
+    .stat-pill:hover { border-color: #38bdf8; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Social Media Live Feed</h1>
+    <div class="row" id="userBadge">Not logged in</div>
+  </header>
+
+  <div class="container">
+    <div id="status">Loading posts from database...</div>
+
+    <!-- Profile Follower / Following / Discover Bar -->
+    <div class="stats-bar" id="profileStats" style="display:none;">
+      <div>
+        <strong id="statUsername" style="color:#38bdf8;">@user</strong>
+        <div id="statBio" style="font-size:0.8rem;color:#94a3b8;margin-top:2px;"></div>
+      </div>
+      <div class="row">
+        <div class="stat-pill" onclick="openSocialDrawer('followers')"><strong id="followerCount">0</strong> Followers ▾</div>
+        <div class="stat-pill" onclick="openSocialDrawer('following')"><strong id="followingCount">0</strong> Following ▾</div>
+        <div class="stat-pill" onclick="openSocialDrawer('discover')">👥 Find People ▾</div>
+      </div>
+    </div>
+
+    <!-- Dropdown Drawer for Followers / Following / Find People -->
+    <div class="card" id="socialDrawer">
+      <div class="post-header" style="margin-bottom:8px;">
+        <strong id="drawerTitle">Followers</strong>
+        <button class="secondary" onclick="document.getElementById('socialDrawer').style.display='none'">Close ✕</button>
+      </div>
+      <div id="drawerList">Loading...</div>
+    </div>
+
+    <!-- Notifications Panel -->
+    <div class="card" id="notifPanel">
+      <div class="post-header" style="margin-bottom:8px;">
+        <strong>🔔 Notifications & Follow Requests</strong>
+        <button class="secondary" onclick="clearNotifications()">Clear All</button>
+      </div>
+      <div id="notifList">No notifications yet.</div>
+    </div>
+
+    <!-- Auth Box -->
+    <div class="card" id="authCard">
+      <strong>Login or Register to Post, Like, Follow & Comment</strong>
+      <div class="row">
+        <input id="email" placeholder="Email (e.g. ananya@example.com)" />
+        <input id="password" type="password" placeholder="Password" />
+      </div>
+      <div class="row">
+        <input id="username" placeholder="Username (only needed for Register)" />
+        <button onclick="login()">Login</button>
+        <button class="secondary" onclick="register()">Register</button>
+      </div>
+    </div>
+
+    <!-- Create Post Box -->
+    <div class="card" id="createCard" style="display:none;">
+      <div class="post-header" style="margin-bottom:4px;">
+        <strong>Create a New Post</strong>
+        <button class="secondary" style="font-size:0.75rem;padding:4px 8px;" onclick="fillSampleImage()">Use Working Sample Image</button>
+      </div>
+      <textarea id="caption" rows="2" placeholder="Write a caption with #hashtags..."></textarea>
+      <input id="mediaURL" placeholder="Direct Image URL ending in .jpg/.png or Unsplash URL" />
+      <button onclick="createPost()">Publish Post</button>
+    </div>
+
+    <div id="feed"></div>
+  </div>
+
+  <script>
+    const API = window.location.origin;
+    let token = localStorage.getItem("token") || "";
+    let currentUser = JSON.parse(localStorage.getItem("user") || "null");
+    let myFollowers = [];
+    let myFollowing = [];
+    let allUsers = [];
+    let activeDrawer = null;
+
+    function fillSampleImage() {
+      document.getElementById("mediaURL").value = "https://images.unsplash.com/photo-1518770660439-4636190af475?w=900";
+    }
+
+    function updateAuthUI() {
+      if (token && currentUser) {
+        document.getElementById("userBadge").innerHTML = `
+          <button class="bell-btn" onclick="toggleNotifs()">🔔 <span class="badge" id="notifCount">0</span></button>
+          <span>@${currentUser.username}</span>
+          <button class="secondary" onclick="logout()">Logout</button>
+        `;
+        document.getElementById("authCard").style.display = "none";
+        document.getElementById("createCard").style.display = "block";
+        document.getElementById("profileStats").style.display = "flex";
+        refreshSocialData().then(() => loadNotifications());
+      } else {
+        document.getElementById("userBadge").textContent = "Not logged in";
+        document.getElementById("authCard").style.display = "block";
+        document.getElementById("createCard").style.display = "none";
+        document.getElementById("profileStats").style.display = "none";
+        document.getElementById("socialDrawer").style.display = "none";
+        document.getElementById("notifPanel").style.display = "none";
+      }
+    }
+
+    async function refreshSocialData() {
+      if (!currentUser?.id) return;
+      try {
+        const [profRes, followersRes, followingRes, usersRes] = await Promise.all([
+          fetch(`${API}/users/${currentUser.id}`),
+          fetch(`${API}/users/${currentUser.id}/followers`),
+          fetch(`${API}/users/${currentUser.id}/following`),
+          fetch(`${API}/users`)
+        ]);
+        const [profJson, followersJson, followingJson, usersJson] = await Promise.all([
+          profRes.json(), followersRes.json(), followingRes.json(), usersRes.json()
+        ]);
+        const u = profJson.data || {};
+        myFollowers = followersJson.data || [];
+        myFollowing = followingJson.data || [];
+        allUsers = (usersJson.data || []).filter(x => x.id !== currentUser.id);
+
+        document.getElementById("statUsername").textContent = `@${u.username || currentUser.username}`;
+        document.getElementById("statBio").textContent = u.bio || "Active member";
+        document.getElementById("followerCount").textContent = String(u.counts?.followers ?? myFollowers.length);
+        document.getElementById("followingCount").textContent = String(u.counts?.following ?? myFollowing.length);
+
+        if (activeDrawer && document.getElementById("socialDrawer").style.display === "block") {
+          renderDrawer(activeDrawer);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function openSocialDrawer(tab) {
+      const drawer = document.getElementById("socialDrawer");
+      if (drawer.style.display === "block" && activeDrawer === tab) {
+        drawer.style.display = "none";
+        return;
+      }
+      activeDrawer = tab;
+      drawer.style.display = "block";
+      await refreshSocialData();
+      renderDrawer(tab);
+    }
+
+    function renderDrawer(tab) {
+      const title = document.getElementById("drawerTitle");
+      const list = document.getElementById("drawerList");
+      const followingIds = new Set(myFollowing.map(x => x.id));
+      const followerIds = new Set(myFollowers.map(x => x.id));
+
+      if (tab === "followers") {
+        title.textContent = `Your Followers (${myFollowers.length})`;
+        if (!myFollowers.length) {
+          list.innerHTML = `<div style="color:#94a3b8;font-size:0.9rem;">No followers yet.</div>`;
+          return;
+        }
+        list.innerHTML = myFollowers.map(u => {
+          const isFollowingBack = followingIds.has(u.id);
+          return `
+            <div class="list-item">
+              <div><strong>@${u.username}</strong> <span style="color:#94a3b8;font-size:0.8rem;">${u.bio || ""}</span></div>
+              ${isFollowingBack
+                ? `<button class="secondary" onclick="unfollowUser('${u.id}')">Following ✓</button>`
+                : `<button class="accept-btn" onclick="sendFollowRequest('${u.id}')">Follow Back</button>`}
+            </div>
+          `;
+        }).join("");
+      } else if (tab === "following") {
+        title.textContent = `People You Follow (${myFollowing.length})`;
+        if (!myFollowing.length) {
+          list.innerHTML = `<div style="color:#94a3b8;font-size:0.9rem;">You aren't following anyone yet.</div>`;
+          return;
+        }
+        list.innerHTML = myFollowing.map(u => `
+          <div class="list-item">
+            <div><strong>@${u.username}</strong> <span style="color:#94a3b8;font-size:0.8rem;">${u.bio || ""}</span></div>
+            <button class="secondary" onclick="unfollowUser('${u.id}')">Unfollow</button>
+          </div>
+        `).join("");
+      } else {
+        title.textContent = `Discover People (${allUsers.length})`;
+        list.innerHTML = allUsers.map(u => {
+          const isFollowing = followingIds.has(u.id);
+          const followsYou = followerIds.has(u.id);
+          return `
+            <div class="list-item">
+              <div>
+                <strong>@${u.username}</strong>
+                ${followsYou ? `<span style="font-size:0.75rem;background:#334155;padding:2px 6px;border-radius:6px;margin-left:6px;">Follows you</span>` : ""}
+                <div style="color:#94a3b8;font-size:0.8rem;">${u.followers} followers · ${u.following} following</div>
+              </div>
+              ${isFollowing
+                ? `<button class="secondary" onclick="unfollowUser('${u.id}')">Following ✓</button>`
+                : `<button onclick="sendFollowRequest('${u.id}')" style="width:auto;padding:6px 12px;margin-top:0;">${followsYou ? "Follow Back" : "Follow"}</button>`}
+            </div>
+          `;
+        }).join("");
+      }
+    }
+
+    function toggleNotifs() {
+      const panel = document.getElementById("notifPanel");
+      panel.style.display = panel.style.display === "none" ? "block" : "none";
+      if (panel.style.display === "block") loadNotifications();
+    }
+
+    async function loadNotifications() {
+      if (!token) return;
+      try {
+        const res = await fetch(`${API}/notifications`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const json = await res.json();
+        const list = document.getElementById("notifList");
+        const badge = document.getElementById("notifCount");
+        if (!res.ok) {
+          if (badge) badge.textContent = "!";
+          list.innerHTML = `<div style="color:#f87171;">Error ${res.status}: ${json.message || json.error}</div>`;
+          document.getElementById("notifPanel").style.display = "block";
+          return;
+        }
+        const notifications = Array.isArray(json.data?.items) ? json.data.items : (Array.isArray(json.data) ? json.data : []);
+        if (badge) badge.textContent = String(notifications.length);
+        if (notifications.length > 0) document.getElementById("notifPanel").style.display = "block";
+        if (!notifications.length) {
+          list.innerHTML = `<div style="color:#94a3b8;font-size:0.9rem;">No notifications yet.</div>`;
+          return;
+        }
+        const followingIds = new Set(myFollowing.map(x => x.id));
+        const fIds=new Set(myFollowing.map(x=>x.id));list.innerHTML=notifications.map(n=>{const req=n.type==="FOLLOW"&&(n.message||"").includes("requested to follow you")&&n.actorId;const fol=n.actorId&&fIds.has(n.actorId);const oth=n.actorId&&n.actorId!==currentUser.id;let b="";if(req)b=`<button class="accept-btn" onclick="acceptFollowRequest('${n.actorId}')">Accept</button>`;else if(oth&&fol)b=`<span style="font-size:0.78rem;background:#334155;color:#38bdf8;padding:3px 9px;border-radius:6px;">Following ✓</span>`;else if(oth)b=`<button class="accept-btn" onclick="sendFollowRequest('${n.actorId}')">Follow Back</button>`;return `<div class="list-item"><span>${n.message}</span><div class="row">${b}<span style="font-size:0.75rem;color:#94a3b8;">${new Date(n.createdAt).toLocaleTimeString()}</span></div></div>`}).join("");
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function acceptFollowRequest(requesterId) {
+      if (!token) return;
+      const res = await fetch(`${API}/users/${requesterId}/follow/accept`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return alert(data.error || data.message || "Failed to accept request");
+      alert(data.message || "Follow request accepted!");
+      await refreshSocialData();
+      await loadNotifications();
+    }
+
+    async function clearNotifications() {
+      if (!token) return;
+      const res = await fetch(`${API}/notifications/read-all`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        return alert(err.message || err.error || "Failed to clear notifications");
+      }
+      await loadNotifications();
+    }
+
+    async function sendFollowRequest(userId) {
+      if (!token) return alert("Please login first!");
+      const res = await fetch(`${API}/users/${userId}/follow`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        alert(data.message || "Follow request sent! Log into their account to Accept it.");
+      } else {
+        alert(data.error || data.message || "Action failed");
+      }
+      await refreshSocialData();
+    }
+
+    async function unfollowUser(userId) {
+      if (!token) return alert("Please login first!");
+      await fetch(`${API}/users/${userId}/follow`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      await refreshSocialData();
+    }
+
+    async function login() {
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+      const res = await fetch(`${API}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (!res.ok) return alert(data.error || data.message || "Login failed");
+      token = data.token;
+      currentUser = data.user;
+      localStorage.setItem("token", token);
+      localStorage.setItem("user", JSON.stringify(currentUser));
+      updateAuthUI();
+      loadPosts();
+    }
+
+    async function register() {
+      const username = document.getElementById("username").value.trim();
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+      const res = await fetch(`${API}/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, email, password })
+      });
+      const data = await res.json();
+      if (!res.ok) return alert(data.error || data.message || "Registration failed");
+      token = data.token;
+      currentUser = data.user;
+      localStorage.setItem("token", token);
+      localStorage.setItem("user", JSON.stringify(currentUser));
+      updateAuthUI();
+      loadPosts();
+    }
+
+    function logout() {
+      token = "";
+      currentUser = null;
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      updateAuthUI();
+      loadPosts();
+    }
+
+    async function createPost() {
+      const caption = document.getElementById("caption").value.trim();
+      const mediaURL = document.getElementById("mediaURL").value.trim();
+      const res = await fetch(`${API}/posts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ caption, mediaURL })
+      });
+      const data = await res.json();
+      if (!res.ok) return alert(data.error || data.message || "Failed to create post");
+      document.getElementById("caption").value = "";
+      document.getElementById("mediaURL").value = "";
+      loadPosts();
+    }
+
+    async function likePost(postId) {
+      if (!token) return alert("Please login first!");
+      const res = await fetch(`${API}/posts/${postId}/like`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.status === 409) {
+        await fetch(`${API}/posts/${postId}/like`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      }
+      loadPosts();
+    }
+
+    async function addComment(postId) {
+      if (!token) return alert("Please login first!");
+      const input = document.getElementById(`c-${postId}`);
+      const content = input.value.trim();
+      if (!content) return;
+      const res = await fetch(`${API}/posts/${postId}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ content })
+      });
+      if (res.ok) {
+        input.value = "";
+        loadPosts();
+      }
+    }
+
+    async function loadPosts() {
+      try {
+        const res = await fetch(`${API}/posts`);
+        const json = await res.json();
+        const posts = json.data?.posts || [];
+        document.getElementById("status").textContent = `Showing ${posts.length} live posts from Supabase`;
+
+        const feed = document.getElementById("feed");
+        feed.innerHTML = "";
+        for (const p of posts) {
+          const cRes = await fetch(`${API}/posts/${p.id}/comments`);
+          const cJson = await cRes.json();
+          const comments = cJson.data || [];
+          const isOtherUser = currentUser && p.userId !== currentUser.id;
+          const isFollowingAuthor = myFollowing.some(x => x.id === p.userId);
+
+          const div = document.createElement("div");
+          div.className = "card";
+          div.innerHTML = `
+            <div class="post-header">
+              <div class="row">
+                <span class="username">@${p.User?.username || "user"}</span>
+                ${isOtherUser
+                  ? (isFollowingAuthor
+                      ? `<button class="secondary" style="font-size:0.75rem;padding:3px 8px;" onclick="unfollowUser('${p.userId}')">Following ✓</button>`
+                      : `<button style="width:auto;font-size:0.75rem;padding:3px 10px;margin-top:0;" onclick="sendFollowRequest('${p.userId}')">Follow</button>`)
+                  : ""}
+              </div>
+              <span style="font-size:0.8rem;color:#94a3b8;">${new Date(p.createdAt).toLocaleString()}</span>
+            </div>
+            <div>${p.caption}</div>
+            <div>${(p.hashtags || []).map(t => `<span class="tag">${t}</span>`).join("")}</div>
+            ${p.mediaURL ? `<img class="post-img" src="${p.mediaURL}" alt="post media" onerror="this.style.display='none'" />` : ""}
+            <div class="actions">
+              <button onclick="likePost('${p.id}')">❤️ Like (${p.likeCount ?? 0})</button>
+            </div>
+            <div class="comments">
+              ${comments.map(c => `<div class="comment-item"><strong>@${c.author?.username || "user"}:</strong> ${c.content}</div>`).join("")}
+              <div class="row" style="margin-top:8px;">
+                <input id="c-${p.id}" placeholder="Add a comment..." style="margin-top:0;" />
+                <button class="secondary" onclick="addComment('${p.id}')">Send</button>
+              </div>
+            </div>
+          `;
+          feed.appendChild(div);
+        }
+      } catch (e) {
+        document.getElementById("status").textContent = "Waking up server... refresh in 15 seconds.";
+      }
+    }
+
+    updateAuthUI();
+    loadPosts();
+  </script>
+</body>
+</html>
