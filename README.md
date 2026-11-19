@@ -13,20 +13,31 @@ Backend API for an Instagram-style social media platform built with **Node.js, E
 2. Create a `.env` file with `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, and `PORT=5000`.
 3. Install & run: `npm install && npx prisma generate && npm run dev`
 
-## Member 5 Endpoints (Notifications, Real-Time Socket.IO & Admin Moderation)
+## Member 4 — Live Feed & User Discovery
 
-| Method | Endpoint | Auth | Description |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/health` | Public | Verify server health status |
-| `GET` | `/notifications?limit=20&offset=0` | `Bearer <JWT>` | Fetch paginated notifications for logged-in user |
-| `PATCH` | `/notifications/:id/read` | `Bearer <JWT>` | Acknowledge and dismiss a single notification |
-| `PATCH` | `/notifications/read-all` | `Bearer <JWT>` | Clear all notifications for logged-in user |
-| `POST` | `/notifications/test-trigger` | `Bearer <JWT>` | Trigger a `LIKE`, `COMMENT`, `FOLLOW`, or `SYSTEM` alert |
-| `POST` | `/reports` | `Bearer <JWT>` | Report a post (`{ "postId": "<UUID>" }`) |
-| `GET` | `/admin/reports?limit=20&offset=0` | `Bearer <ADMIN_JWT>` | List all reported posts with reporter & post details |
-| `PATCH` | `/admin/reports/:id` | `Bearer <ADMIN_JWT>` | Dismiss/resolve a specific report |
-| `PATCH` | `/admin/posts/:id` | `Bearer <ADMIN_JWT>` | Moderate post (`{ "action": "DELETE" | "DISMISS_REPORTS" }`) |
-| `DELETE` | `/admin/posts/:id` | `Bearer <ADMIN_JWT>` | Permanently remove a violating post |
+The Member 4 dashboard brings posts and social connections together in one interface. It loads posts from the API and gives logged-in users a place to browse people, check their followers and following, and manage follow connections.
+
+### What’s included
+
+- **Live post feed:** Displays posts loaded from `GET /posts`, including captions, images, hashtags, authors, timestamps, likes, and comments.
+- **People discovery:** Lists users from `GET /users` and shows follower and following counts.
+- **Follower and following lists:** Opens a panel for viewing the signed-in user’s followers and the accounts they follow.
+- **Follow controls:** Lets users follow, follow back, and unfollow from the discovery and profile panels.
+- **Profile summary:** Shows the signed-in user’s username, bio, and follower/following counts.
+
+### API routes used by the feed and discovery interface
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| `GET` | `/posts` | Load posts for the live feed |
+| `GET` | `/users` | Load accounts for discovery |
+| `GET` | `/users/:id` | Load a user’s profile details |
+| `GET` | `/users/:id/followers` | Load a user’s followers |
+| `GET` | `/users/:id/following` | Load accounts a user follows |
+| `POST` | `/users/:id/follow` | Follow a user or send a follow request |
+| `DELETE` | `/users/:id/follow` | Unfollow a user |
+
+The dashboard is in [`public/index.html`](public/index.html) and connects to the project API to display live data.
 
 ### Real-Time Socket.IO Events
 - **Handshake Auth:** `{ auth: { token: "<JWT>" } }` (automatically joins room `user:<userId>`).
